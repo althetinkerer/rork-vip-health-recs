@@ -1,331 +1,688 @@
-import React, { useCallback } from 'react';
-import { StyleSheet, View, Text, ScrollView, RefreshControl, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useCallback } from 'react';
+import {
+  StyleSheet, View, Text, ScrollView, RefreshControl, Pressable, Image,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bell, Calendar, ChevronRight, FileText, AlertTriangle } from 'lucide-react-native';
-import { colors, spacing, typography, borderRadius } from '@/constants/theme';
-import { useData } from '@/context/DataContext';
-import { mockStats } from '@/mocks/data';
-import StatTile from '@/components/StatTile';
-import SectionHeader from '@/components/SectionHeader';
+import {
+  Bell, Calendar, Sparkles, TrendingUp, MessageSquare, Upload,
+  FileText, Pill, RefreshCw, ClipboardList, Clock, Shield, Phone,
+  AlertTriangle, Info, CheckCircle2, Eye, Download, ArrowLeftRight,
+  MapPin, Plus, BookOpen, PlayCircle, BookMarked,
+} from 'lucide-react-native';
+import { colors, spacing, typography, borderRadius, shadow } from '@/constants/theme';
 import Card from '@/components/Card';
-import StatusBadge from '@/components/StatusBadge';
+import GamificationPanel from '@/components/dashboard/GamificationPanel';
+import DentalChartView from '@/components/dashboard/DentalChartView';
+import {
+  quickActions,
+  insuranceData,
+  insights,
+  dashboardAppointments,
+  dashboardRecords,
+  dashboardReferrals,
+  educationalResources,
+  type QuickAction,
+  type InsuranceInfo,
+  type InsightCard,
+  type DashboardReferral,
+} from '@/mocks/dashboardData';
+
+const AVATAR_URL = 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/62ucvr22l2ze5sr60nnf9';
+
+const iconMap: Record<string, React.ComponentType<{ size: number; color: string }>> = {
+  Calendar, MessageSquare, Upload, FileText, Pill, RefreshCw, ClipboardList, Clock,
+};
+
+const resourceIconMap: Record<string, React.ComponentType<{ size: number; color: string }>> = {
+  Article: FileText,
+  Video: PlayCircle,
+  Guide: BookMarked,
+};
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 export default function DashboardScreen() {
-  const router = useRouter();
-  const { appointments, medications, referrals, records, refetchAll } = useData();
-  const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [recordsTab, setRecordsTab] = useState<'medical' | 'dental'>('medical');
+  const [referralTab, setReferralTab] = useState<'active' | 'history'>('active');
 
-  const onRefresh = useCallback(async () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    refetchAll();
     setTimeout(() => setRefreshing(false), 800);
-  }, [refetchAll]);
+  }, []);
 
-  const upcomingAppts = appointments
-    .filter(a => a.status === 'UPCOMING')
-    .slice(0, 2);
-
-  const lowStockMeds = medications.filter(
-    m => m.isActive && m.pillsRemaining !== undefined && m.totalPills !== undefined && m.pillsRemaining < m.totalPills * 0.2
-  );
-
-  const pendingReferrals = referrals.filter(
-    r => r.status === 'RECEIVED' || r.status === 'IN_REVIEW'
-  );
+  const activeReferrals = dashboardReferrals.filter(r => r.status !== 'Completed');
+  const historyReferrals = dashboardReferrals.filter(r => r.status === 'Completed');
+  const displayedReferrals = referralTab === 'active' ? activeReferrals : historyReferrals;
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.safeTop}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Good morning</Text>
-            <Text style={styles.headerTitle}>Health Dashboard</Text>
+    <View style={s.screen}>
+      <SafeAreaView edges={['top']} style={s.safeTop}>
+        <View style={s.header}>
+          <View style={s.logoRow}>
+            <View style={s.logoIcon}>
+              <Text style={s.logoV}>V</Text>
+            </View>
+            <Text style={s.logoText}>
+              <Text style={s.logoBold}>VIP</Text>
+              <Text style={s.logoLight}>health</Text>
+              <Text style={s.logoBold}>recs</Text>
+            </Text>
           </View>
-          <Pressable style={styles.notifButton} hitSlop={8}>
-            <Bell size={22} color={colors.textPrimary} />
-            {pendingReferrals.length > 0 && <View style={styles.notifDot} />}
-          </Pressable>
+          <View style={s.headerRight}>
+            <Pressable style={s.bellBtn} hitSlop={8}>
+              <Bell size={22} color={colors.textPrimary} />
+              <View style={s.bellDot} />
+            </Pressable>
+            <Image source={{ uri: AVATAR_URL }} style={s.headerAvatar} />
+          </View>
         </View>
       </SafeAreaView>
 
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        style={s.scroll}
+        contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <View style={styles.statsGrid}>
-          <View style={styles.statsRow}>
-            {mockStats.slice(0, 2).map((stat, i) => (
-              <StatTile key={stat.id} stat={stat} index={i} />
-            ))}
+        {/* Welcome Card */}
+        <Card style={s.welcomeCard} variant="elevated">
+          <View style={s.welcomeTitleRow}>
+            <Sparkles size={20} color={colors.primary} />
+            <Text style={s.welcomeTitle}>{getGreeting()}, John!</Text>
           </View>
-          <View style={styles.statsRow}>
-            {mockStats.slice(2, 4).map((stat, i) => (
-              <StatTile key={stat.id} stat={stat} index={i + 2} />
-            ))}
-          </View>
-        </View>
-
-        {lowStockMeds.length > 0 && (
-          <Pressable
-            style={styles.alertBanner}
-            onPress={() => router.push('/(tabs)/medications')}
-          >
-            <AlertTriangle size={18} color={colors.warning} />
-            <Text style={styles.alertText}>
-              {lowStockMeds.length} medication{lowStockMeds.length > 1 ? 's' : ''} running low
-            </Text>
-            <ChevronRight size={16} color={colors.warning} />
-          </Pressable>
-        )}
-
-        <SectionHeader
-          title="Upcoming Appointments"
-          actionLabel="See all"
-          onAction={() => router.push('/(tabs)/appointments')}
-        />
-        {upcomingAppts.length === 0 ? (
-          <Card style={styles.cardMargin}>
-            <Text style={styles.emptyText}>No upcoming appointments</Text>
-          </Card>
-        ) : (
-          upcomingAppts.map(apt => (
-            <Card
-              key={apt.id}
-              style={styles.cardMargin}
-              onPress={() => router.push(`/(tabs)/appointments/${apt.id}`)}
-              variant="elevated"
-            >
-              <View style={styles.apptRow}>
-                <View style={[styles.apptIcon, { backgroundColor: apt.type === 'VIRTUAL' ? colors.primaryFaded : colors.successLight }]}>
-                  <Calendar size={18} color={apt.type === 'VIRTUAL' ? colors.primary : colors.success} />
-                </View>
-                <View style={styles.apptInfo}>
-                  <Text style={styles.apptTitle}>{apt.title}</Text>
-                  <Text style={styles.apptProvider}>{apt.providerName}</Text>
-                  <Text style={styles.apptTime}>{apt.date} · {apt.time}</Text>
-                </View>
-                <StatusBadge status={apt.status} />
+          <Text style={s.welcomeSubtitle}>Welcome back to your integrated health dashboard</Text>
+          <View style={s.welcomeStatsRow}>
+            <View style={s.welcomeStat}>
+              <View style={[s.welcomeStatIcon, { backgroundColor: colors.primaryFaded }]}>
+                <Calendar size={20} color={colors.primary} />
               </View>
-            </Card>
-          ))
-        )}
-
-        {pendingReferrals.length > 0 && (
-          <>
-            <SectionHeader
-              title="Referrals Needing Action"
-              actionLabel="View all"
-              onAction={() => router.push('/(tabs)/referrals')}
-            />
-            {pendingReferrals.slice(0, 2).map(ref => (
-              <Card
-                key={ref.id}
-                style={styles.cardMargin}
-                onPress={() => router.push(`/(tabs)/referrals/${ref.id}`)}
-              >
-                <View style={styles.refRow}>
-                  <View style={styles.refInfo}>
-                    <Text style={styles.refPatient}>{ref.patientName}</Text>
-                    <Text style={styles.refReason} numberOfLines={1}>{ref.reason}</Text>
-                  </View>
-                  <StatusBadge status={ref.status} />
-                </View>
-              </Card>
-            ))}
-          </>
-        )}
-
-        <SectionHeader
-          title="Recent Records"
-          actionLabel="See all"
-          onAction={() => router.push('/(tabs)/records')}
-        />
-        {records.slice(0, 3).map(rec => (
-          <Card
-            key={rec.id}
-            style={styles.cardMargin}
-            onPress={() => router.push(`/(tabs)/records/${rec.id}`)}
-          >
-            <View style={styles.recRow}>
-              <View style={styles.recIcon}>
-                <FileText size={16} color={colors.primary} />
-              </View>
-              <View style={styles.recInfo}>
-                <Text style={styles.recTitle} numberOfLines={1}>{rec.title}</Text>
-                <Text style={styles.recMeta}>{rec.providerName} · {rec.date}</Text>
+              <View>
+                <Text style={s.welcomeStatValue}>2</Text>
+                <Text style={s.welcomeStatLabel}>Upcoming{'\n'}Appointments</Text>
               </View>
             </View>
-          </Card>
-        ))}
+            <View style={s.welcomeStat}>
+              <View style={[s.welcomeStatIcon, { backgroundColor: colors.primaryFaded }]}>
+                <TrendingUp size={20} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={s.welcomeStatValue}>5 days</Text>
+                <Text style={s.welcomeStatLabel}>Until Next{'\n'}Visit</Text>
+              </View>
+            </View>
+          </View>
+          <View style={s.reminderBox}>
+            <Text style={s.reminderBold}>Your dental cleaning is coming up!</Text>
+            <Text style={s.reminderText}>
+              Remember, good oral health contributes to your overall wellness. Keep up with your daily brushing and flossing routine.
+            </Text>
+          </View>
+        </Card>
 
-        <View style={styles.bottomPad} />
+        {/* Quick Actions */}
+        <View style={s.actionsGrid}>
+          {quickActions.map((action: QuickAction) => {
+            const Icon = iconMap[action.icon] || Calendar;
+            return (
+              <Pressable key={action.id} style={[s.actionItem, { backgroundColor: action.bgColor }]}>
+                <Icon size={28} color={action.color} />
+                <Text style={[s.actionLabel, { color: action.color }]}>{action.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Gamification */}
+        <GamificationPanel />
+
+        {/* Insurance Cards */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.insuranceScroll}
+          style={s.insuranceContainer}
+        >
+          {insuranceData.map((ins: InsuranceInfo) => (
+            <View key={ins.type} style={s.insuranceCard}>
+              <View style={s.insuranceHeader}>
+                <View style={s.insuranceIconBox}>
+                  <Shield size={24} color={colors.textInverse} />
+                </View>
+                <View style={s.insuranceTitleCol}>
+                  <Text style={s.insuranceType}>
+                    {ins.type === 'dental' ? 'Dental' : 'Medical'} Insurance
+                  </Text>
+                </View>
+                {ins.active && (
+                  <View style={s.activeBadge}>
+                    <CheckCircle2 size={12} color="#22C55E" />
+                    <Text style={s.activeText}>Active</Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={s.insuranceProviderBox}>
+                <Text style={s.insuranceProviderLabel}>Insurance Provider</Text>
+                <Text style={s.insuranceProviderName}>{ins.provider}</Text>
+              </View>
+
+              <View style={s.insuranceInfoRow}>
+                <View style={s.insuranceInfoCol}>
+                  <Text style={s.insuranceInfoLabel}>Policy Number</Text>
+                  <Text style={s.insuranceInfoValue}>{ins.policyNumber}</Text>
+                </View>
+                <View style={s.insuranceInfoCol}>
+                  <Text style={s.insuranceInfoLabel}>Group Number</Text>
+                  <Text style={s.insuranceInfoValue}>{ins.groupNumber}</Text>
+                </View>
+              </View>
+
+              <View style={s.insuranceHolderBox}>
+                <View style={s.insuranceHolderRow}>
+                  <Text style={s.insuranceHolderLabel}>Primary Holder</Text>
+                  <Text style={s.insuranceHolderValue}>{ins.primaryHolder}</Text>
+                </View>
+                <View style={s.insuranceHolderRow}>
+                  <Text style={s.insuranceHolderLabel}>Dependents</Text>
+                  <Text style={s.insuranceHolderValue}>{ins.dependents}</Text>
+                </View>
+                <View style={s.insuranceHolderRow}>
+                  <Text style={s.insuranceHolderLabel}>Coverage Start</Text>
+                  <Text style={s.insuranceHolderValue}>{ins.coverageStart}</Text>
+                </View>
+              </View>
+
+              {ins.lines.map((line, i) => (
+                <View key={i} style={s.insuranceLine}>
+                  <Text style={s.insuranceLineLabel}>{line.label}</Text>
+                  <Text style={[s.insuranceLineValue, line.highlight && { color: colors.primary }]}>{line.value}</Text>
+                </View>
+              ))}
+
+              <View style={s.insuranceServiceRow}>
+                <Phone size={14} color={colors.primary} />
+                <Text style={s.insuranceServiceLabel}>Customer Service</Text>
+              </View>
+              <Text style={s.insuranceServiceNumber}>{ins.customerService}</Text>
+
+              <Pressable style={s.insurancePortalBtn}>
+                <Text style={s.insurancePortalText}>{ins.portalLabel}</Text>
+              </Pressable>
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Medical-Dental Insights */}
+        <Card style={s.sectionCard}>
+          <View style={s.sectionHeaderRow}>
+            <View style={s.sectionHeaderLeft}>
+              <TrendingUp size={18} color={colors.primary} />
+              <Text style={s.sectionHeaderTitle}>Medical-Dental Integration Insights</Text>
+            </View>
+            <Pressable>
+              <Text style={s.viewAllText}>View All</Text>
+            </Pressable>
+          </View>
+          {insights.map((insight: InsightCard) => {
+            const insightColor = insight.type === 'warning' ? '#EF4444' : insight.type === 'info' ? colors.textPrimary : '#22C55E';
+            const insightBg = insight.type === 'warning' ? '#FEF2F2' : insight.type === 'info' ? colors.surfaceSecondary : '#F0FFF4';
+            const InsightIcon = insight.type === 'warning' ? AlertTriangle : insight.type === 'info' ? Info : CheckCircle2;
+            return (
+              <View key={insight.id} style={[s.insightCard, { backgroundColor: insightBg }]}>
+                <View style={s.insightTitleRow}>
+                  <InsightIcon size={16} color={insightColor} />
+                  <Text style={[s.insightTitle, { color: insightColor }]}>{insight.title}</Text>
+                </View>
+                <Text style={[s.insightDesc, insight.type === 'warning' && { color: insightColor }]}>
+                  {insight.description}
+                </Text>
+                <Pressable>
+                  <Text style={s.insightAction}>{insight.actionLabel}</Text>
+                </Pressable>
+              </View>
+            );
+          })}
+        </Card>
+
+        {/* Upcoming Appointments */}
+        <Card style={s.sectionCard}>
+          <View style={s.sectionHeaderRow}>
+            <View style={s.sectionHeaderLeft}>
+              <Calendar size={18} color={colors.primary} />
+              <Text style={s.sectionHeaderTitle}>Upcoming Appointments</Text>
+            </View>
+            <Pressable style={s.scheduleBtn}>
+              <Text style={s.scheduleBtnText}>Schedule New</Text>
+            </Pressable>
+          </View>
+          {dashboardAppointments.map(apt => (
+            <View key={apt.id} style={s.apptCard}>
+              <View style={s.apptRow}>
+                <View style={[s.apptIconBox, { backgroundColor: apt.bgColor }]}>
+                  <Calendar size={20} color={apt.iconColor} />
+                </View>
+                <View style={s.apptContent}>
+                  <View style={s.apptCatRow}>
+                    <View style={s.catBadge}>
+                      <Text style={s.catBadgeText}>{apt.category}</Text>
+                    </View>
+                    <Pressable><Text style={s.detailsLink}>Details</Text></Pressable>
+                  </View>
+                  <Text style={s.apptTitle}>{apt.title}</Text>
+                  <Text style={s.apptProvider}>{apt.provider}</Text>
+                  <View style={s.apptMetaRow}>
+                    <Clock size={12} color={colors.textTertiary} />
+                    <Text style={s.apptMetaText}>{apt.date}</Text>
+                  </View>
+                  <View style={s.apptMetaRow}>
+                    <MapPin size={12} color={colors.textTertiary} />
+                    <Text style={s.apptMetaText}>{apt.location}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          ))}
+        </Card>
+
+        {/* Health Records */}
+        <Card style={s.sectionCard}>
+          <View style={s.sectionHeaderLeft}>
+            <FileText size={18} color={colors.primary} />
+            <Text style={s.sectionHeaderTitle}>Health Records</Text>
+          </View>
+          <View style={s.tabRow}>
+            <Pressable
+              style={[s.tabItem, recordsTab === 'medical' && s.tabItemActive]}
+              onPress={() => setRecordsTab('medical')}
+            >
+              <Text style={[s.tabItemText, recordsTab === 'medical' && s.tabItemTextActive]}>Medical Records</Text>
+            </Pressable>
+            <Pressable
+              style={[s.tabItem, recordsTab === 'dental' && s.tabItemActive]}
+              onPress={() => setRecordsTab('dental')}
+            >
+              <Text style={[s.tabItemText, recordsTab === 'dental' && s.tabItemTextActive]}>Dental Records</Text>
+            </Pressable>
+          </View>
+          {dashboardRecords.map(rec => (
+            <View key={rec.id} style={s.recordItem}>
+              <View style={s.recordIconBox}>
+                <FileText size={18} color={colors.primary} />
+              </View>
+              <View style={s.recordInfo}>
+                <Text style={s.recordTitle}>{rec.title}</Text>
+                <Text style={s.recordMeta}>{rec.date} · {rec.provider}</Text>
+              </View>
+              <Pressable style={s.recordAction}><Eye size={18} color={colors.textTertiary} /></Pressable>
+              <Pressable style={s.recordAction}><Download size={18} color={colors.textTertiary} /></Pressable>
+            </View>
+          ))}
+        </Card>
+
+        {/* Referral Management */}
+        <Card style={s.sectionCard}>
+          <View style={s.sectionHeaderRow}>
+            <View style={s.sectionHeaderLeft}>
+              <ArrowLeftRight size={18} color={colors.primary} />
+              <Text style={s.sectionHeaderTitle}>Referral Management</Text>
+            </View>
+            <Pressable style={s.newRefBtn}>
+              <Plus size={14} color={colors.textInverse} />
+              <Text style={s.newRefBtnText}>New Referral</Text>
+            </Pressable>
+          </View>
+          <View style={s.tabRow}>
+            <Pressable
+              style={[s.tabItem, referralTab === 'active' && s.tabItemActive]}
+              onPress={() => setReferralTab('active')}
+            >
+              <Text style={[s.tabItemText, referralTab === 'active' && s.tabItemTextActive]}>Active Referrals</Text>
+            </Pressable>
+            <Pressable
+              style={[s.tabItem, referralTab === 'history' && s.tabItemActive]}
+              onPress={() => setReferralTab('history')}
+            >
+              <Text style={[s.tabItemText, referralTab === 'history' && s.tabItemTextActive]}>Referral History</Text>
+            </Pressable>
+          </View>
+          {displayedReferrals.map((ref: DashboardReferral) => (
+            <View key={ref.id} style={s.refCard}>
+              <View style={s.refHeaderRow}>
+                <Text style={s.refNumber}>{ref.refNumber}</Text>
+                <View style={[s.refStatusBadge, { backgroundColor: ref.statusColor + '20' }]}>
+                  <CheckCircle2 size={12} color={ref.statusColor} />
+                  <Text style={[s.refStatusText, { color: ref.statusColor }]}>{ref.status}</Text>
+                </View>
+                <View style={[s.refPriorityBadge, { backgroundColor: ref.priorityColor }]}>
+                  <Text style={s.refPriorityText}>{ref.priority}</Text>
+                </View>
+              </View>
+              <Text style={s.refDate}>{ref.date}</Text>
+              <View style={s.refDoctorsRow}>
+                <View style={s.refDoctorCard}>
+                  <Text style={s.refDoctorName}>{ref.fromDoctor.name}</Text>
+                  <Text style={s.refDoctorSpec}>{ref.fromDoctor.specialty}</Text>
+                </View>
+                <ArrowLeftRight size={16} color={colors.textTertiary} />
+                <View style={s.refDoctorCard}>
+                  <Text style={s.refDoctorName}>{ref.toDoctor.name}</Text>
+                  <Text style={s.refDoctorSpec}>{ref.toDoctor.specialty}</Text>
+                </View>
+              </View>
+              <View style={s.refReasonBox}>
+                <FileText size={14} color={colors.textSecondary} />
+                <View style={s.refReasonContent}>
+                  <Text style={s.refReasonTitle}>{ref.reason}</Text>
+                  <Text style={s.refReasonDesc}>{ref.description}</Text>
+                </View>
+              </View>
+              {ref.status !== 'Completed' && (
+                <View style={s.refActionsRow}>
+                  <Pressable style={s.refActionBtn}><Text style={s.refActionBtnText}>Follow Up</Text></Pressable>
+                  <Pressable style={s.refActionBtnOutline}><Text style={s.refActionOutlineText}>Cancel Referral</Text></Pressable>
+                </View>
+              )}
+              {ref.status === 'Completed' && (
+                <View style={s.refActionsRow}>
+                  <Pressable><Text style={s.detailsLink}>View Details</Text></Pressable>
+                </View>
+              )}
+            </View>
+          ))}
+        </Card>
+
+        {/* Dental Chart */}
+        <DentalChartView />
+
+        {/* Educational Resources */}
+        <Card style={s.sectionCard}>
+          <View style={s.sectionHeaderRow}>
+            <View style={s.sectionHeaderLeft}>
+              <BookOpen size={18} color={colors.primary} />
+              <Text style={s.sectionHeaderTitle}>Educational Resources</Text>
+            </View>
+            <Pressable>
+              <Text style={s.viewAllText}>Browse All</Text>
+            </Pressable>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.resourcesScroll}>
+            {educationalResources.map(res => {
+              const ResIcon = resourceIconMap[res.type] || FileText;
+              return (
+                <View key={res.id} style={s.resourceCard}>
+                  <View style={s.resourceImageContainer}>
+                    <Image source={{ uri: res.imageUrl }} style={s.resourceImage} />
+                    <View style={s.resourceTypeBadge}>
+                      <Text style={s.resourceTypeText}>{res.type}</Text>
+                    </View>
+                  </View>
+                  <View style={s.resourceInfo}>
+                    <View style={s.resourceDurationRow}>
+                      <ResIcon size={12} color={colors.textTertiary} />
+                      <Text style={s.resourceDuration}>{res.duration}</Text>
+                    </View>
+                    <Text style={s.resourceTitle}>{res.title}</Text>
+                    <Pressable><Text style={s.resourceLink}>Learn More</Text></Pressable>
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </Card>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safeTop: {
-    backgroundColor: colors.surface,
-  },
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  safeTop: { backgroundColor: colors.surface },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: spacing.md,
     backgroundColor: colors.surface,
   },
-  greeting: {
-    ...typography.callout,
-    color: colors.textSecondary,
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  logoIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#1A3A5C', alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: {
-    ...typography.title,
-    color: colors.textPrimary,
+  logoV: { fontSize: 18, fontWeight: '800' as const, color: '#FFFFFF' },
+  logoText: { fontSize: 18, lineHeight: 22 },
+  logoBold: { fontWeight: '700' as const, color: colors.textPrimary },
+  logoLight: { fontWeight: '400' as const, color: colors.textSecondary },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  bellBtn: { position: 'relative' as const },
+  bellDot: {
+    position: 'absolute' as const, top: -2, right: -2,
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: colors.error, borderWidth: 1.5, borderColor: colors.surface,
   },
-  notifButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerAvatar: { width: 36, height: 36, borderRadius: 18 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingTop: spacing.md, paddingBottom: spacing.xxxl },
+
+  welcomeCard: { marginHorizontal: spacing.xl, marginBottom: spacing.xxl },
+  welcomeTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
+  welcomeTitle: { ...typography.title, color: colors.textPrimary },
+  welcomeSubtitle: { ...typography.callout, color: colors.textSecondary, marginBottom: spacing.lg },
+  welcomeStatsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
+  welcomeStat: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: colors.surfaceSecondary, borderRadius: borderRadius.md, padding: spacing.md,
   },
-  notifDot: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: colors.error,
-    borderWidth: 2,
-    borderColor: colors.surface,
+  welcomeStatIcon: {
+    width: 40, height: 40, borderRadius: borderRadius.md,
+    alignItems: 'center', justifyContent: 'center',
   },
-  scroll: {
-    flex: 1,
+  welcomeStatValue: { ...typography.title3, color: colors.textPrimary },
+  welcomeStatLabel: { ...typography.small, color: colors.textSecondary, lineHeight: 14 },
+  reminderBox: { backgroundColor: '#EDF3FA', borderRadius: borderRadius.md, padding: spacing.md },
+  reminderBold: { ...typography.headline, color: colors.textPrimary, marginBottom: spacing.xs },
+  reminderText: { ...typography.callout, color: colors.textSecondary, lineHeight: 20 },
+
+  actionsGrid: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: spacing.xl, gap: spacing.sm, marginBottom: spacing.xxl,
   },
-  scrollContent: {
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxxl,
+  actionItem: {
+    width: '23%' as unknown as number, flexGrow: 1,
+    alignItems: 'center', justifyContent: 'center',
+    borderRadius: borderRadius.lg, paddingVertical: spacing.lg, paddingHorizontal: spacing.xs,
+    minHeight: 90,
   },
-  statsGrid: {
-    paddingHorizontal: spacing.xl,
-    gap: spacing.md,
-    marginBottom: spacing.xxl,
+  actionLabel: {
+    ...typography.small, fontWeight: '600' as const, textAlign: 'center', marginTop: spacing.sm,
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
+
+  insuranceContainer: { marginBottom: spacing.xxl },
+  insuranceScroll: { paddingHorizontal: spacing.xl },
+  insuranceCard: {
+    width: 280, backgroundColor: colors.surface, borderRadius: borderRadius.lg,
+    padding: spacing.lg, marginRight: spacing.md, ...shadow.md,
   },
-  alertBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.warningLight,
-    marginHorizontal: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.xxl,
-    gap: spacing.sm,
+  insuranceHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg },
+  insuranceIconBox: {
+    width: 40, height: 40, borderRadius: borderRadius.md,
+    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
   },
-  alertText: {
-    ...typography.callout,
-    color: '#92400E',
-    fontWeight: '600' as const,
-    flex: 1,
+  insuranceTitleCol: { flex: 1 },
+  insuranceType: { ...typography.headline, color: colors.textPrimary },
+  activeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  activeText: { ...typography.small, color: '#22C55E', fontWeight: '600' as const },
+  insuranceProviderBox: {
+    backgroundColor: colors.surfaceSecondary, borderRadius: borderRadius.md,
+    padding: spacing.md, marginBottom: spacing.md,
   },
-  cardMargin: {
-    marginHorizontal: spacing.xl,
-    marginBottom: spacing.md,
+  insuranceProviderLabel: { ...typography.caption, color: colors.textSecondary },
+  insuranceProviderName: { ...typography.headline, color: colors.primary, marginTop: 2 },
+  insuranceInfoRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
+  insuranceInfoCol: { flex: 1 },
+  insuranceInfoLabel: { ...typography.small, color: colors.textTertiary },
+  insuranceInfoValue: { ...typography.callout, color: colors.textPrimary, fontWeight: '600' as const },
+  insuranceHolderBox: {
+    backgroundColor: colors.surfaceSecondary, borderRadius: borderRadius.md,
+    padding: spacing.md, marginBottom: spacing.md,
   },
-  emptyText: {
-    ...typography.body,
-    color: colors.textTertiary,
-    textAlign: 'center',
+  insuranceHolderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  insuranceHolderLabel: { ...typography.caption, color: colors.textSecondary },
+  insuranceHolderValue: { ...typography.callout, color: colors.textPrimary, fontWeight: '600' as const },
+  insuranceLine: {
+    flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs,
   },
-  apptRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  insuranceLineLabel: { ...typography.caption, color: colors.textSecondary },
+  insuranceLineValue: { ...typography.callout, color: colors.textPrimary, fontWeight: '600' as const },
+  insuranceServiceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md },
+  insuranceServiceLabel: { ...typography.caption, color: colors.textSecondary },
+  insuranceServiceNumber: { ...typography.headline, color: colors.primary, marginBottom: spacing.md },
+  insurancePortalBtn: {
+    backgroundColor: colors.primary, borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm, alignItems: 'center',
   },
-  apptIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+  insurancePortalText: { ...typography.callout, color: colors.textInverse, fontWeight: '600' as const },
+
+  sectionCard: { marginHorizontal: spacing.xl, marginBottom: spacing.xxl },
+  sectionHeaderRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: spacing.lg,
   },
-  apptInfo: {
-    flex: 1,
+  sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
+  sectionHeaderTitle: { ...typography.headline, color: colors.textPrimary },
+  viewAllText: {
+    ...typography.callout, color: colors.textSecondary, fontWeight: '500' as const,
+    borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
+    overflow: 'hidden',
   },
-  apptTitle: {
-    ...typography.headline,
-    color: colors.textPrimary,
+
+  insightCard: {
+    borderRadius: borderRadius.md, padding: spacing.lg, marginBottom: spacing.md,
+    borderLeftWidth: 3, borderLeftColor: 'transparent',
   },
-  apptProvider: {
-    ...typography.callout,
-    color: colors.textSecondary,
-    marginTop: 1,
+  insightTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  insightTitle: { ...typography.headline },
+  insightDesc: { ...typography.callout, color: colors.textSecondary, lineHeight: 20, marginBottom: spacing.sm },
+  insightAction: { ...typography.callout, color: colors.primary, fontWeight: '600' as const },
+
+  scheduleBtn: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
   },
-  apptTime: {
-    ...typography.caption,
-    color: colors.textTertiary,
-    marginTop: 2,
+  scheduleBtnText: { ...typography.callout, color: colors.textSecondary, fontWeight: '500' as const },
+  apptCard: {
+    borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.md,
+    padding: spacing.lg, marginBottom: spacing.md,
   },
-  refRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+  apptRow: { flexDirection: 'row', gap: spacing.md },
+  apptIconBox: {
+    width: 44, height: 44, borderRadius: borderRadius.md,
+    alignItems: 'center', justifyContent: 'center',
   },
-  refInfo: {
-    flex: 1,
+  apptContent: { flex: 1 },
+  apptCatRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
+  catBadge: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: 1,
   },
-  refPatient: {
-    ...typography.headline,
-    color: colors.textPrimary,
+  catBadgeText: { ...typography.small, color: colors.textSecondary },
+  detailsLink: { ...typography.callout, color: colors.textSecondary, fontWeight: '500' as const },
+  apptTitle: { ...typography.headline, color: colors.textPrimary, marginBottom: 2 },
+  apptProvider: { ...typography.callout, color: colors.textSecondary, marginBottom: spacing.sm },
+  apptMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 2 },
+  apptMetaText: { ...typography.caption, color: colors.textTertiary },
+
+  tabRow: {
+    flexDirection: 'row', backgroundColor: colors.surfaceSecondary,
+    borderRadius: borderRadius.md, padding: 3, marginBottom: spacing.lg,
   },
-  refReason: {
-    ...typography.callout,
-    color: colors.textSecondary,
-    marginTop: 2,
+  tabItem: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: borderRadius.sm },
+  tabItemActive: { backgroundColor: colors.surface, ...shadow.sm },
+  tabItemText: { ...typography.caption, color: colors.textTertiary, fontWeight: '600' as const },
+  tabItemTextActive: { color: colors.textPrimary },
+
+  recordItem: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
-  recRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  recordIconBox: {
+    width: 40, height: 40, borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryFaded, alignItems: 'center', justifyContent: 'center',
   },
-  recIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.primaryFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
+  recordInfo: { flex: 1 },
+  recordTitle: { ...typography.headline, color: colors.textPrimary },
+  recordMeta: { ...typography.caption, color: colors.textTertiary, marginTop: 2 },
+  recordAction: { padding: spacing.xs },
+
+  newRefBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+    backgroundColor: colors.primary, borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
   },
-  recInfo: {
-    flex: 1,
+  newRefBtnText: { ...typography.caption, color: colors.textInverse, fontWeight: '600' as const },
+  refCard: {
+    borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.md,
+    padding: spacing.lg, marginBottom: spacing.md,
   },
-  recTitle: {
-    ...typography.headline,
-    color: colors.textPrimary,
+  refHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap', marginBottom: spacing.xs },
+  refNumber: { ...typography.headline, color: colors.textPrimary },
+  refStatusBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderRadius: borderRadius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2,
   },
-  recMeta: {
-    ...typography.caption,
-    color: colors.textTertiary,
-    marginTop: 2,
+  refStatusText: { ...typography.small, fontWeight: '600' as const },
+  refPriorityBadge: { borderRadius: borderRadius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 },
+  refPriorityText: { ...typography.small, color: colors.textInverse, fontWeight: '600' as const },
+  refDate: { ...typography.caption, color: colors.textTertiary, marginBottom: spacing.md },
+  refDoctorsRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md,
   },
-  bottomPad: {
-    height: 20,
+  refDoctorCard: {
+    flex: 1, borderWidth: 1, borderColor: colors.borderLight,
+    borderRadius: borderRadius.md, padding: spacing.sm,
   },
+  refDoctorName: { ...typography.callout, color: colors.primary, fontWeight: '600' as const },
+  refDoctorSpec: { ...typography.small, color: colors.textSecondary },
+  refReasonBox: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  refReasonContent: { flex: 1 },
+  refReasonTitle: { ...typography.callout, color: colors.textPrimary, fontWeight: '600' as const },
+  refReasonDesc: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+  refActionsRow: { flexDirection: 'row', gap: spacing.sm },
+  refActionBtn: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+  },
+  refActionBtnText: { ...typography.caption, color: colors.textPrimary, fontWeight: '600' as const },
+  refActionBtnOutline: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+  },
+  refActionOutlineText: { ...typography.caption, color: colors.textSecondary },
+
+  resourcesScroll: { marginHorizontal: -spacing.lg },
+  resourceCard: {
+    width: 180, marginRight: spacing.md, borderRadius: borderRadius.md,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight,
+    overflow: 'hidden',
+  },
+  resourceImageContainer: { position: 'relative' as const },
+  resourceImage: { width: '100%', height: 110 },
+  resourceTypeBadge: {
+    position: 'absolute' as const, top: spacing.sm, left: spacing.sm,
+    backgroundColor: colors.surface, borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: 2,
+  },
+  resourceTypeText: { ...typography.small, color: colors.textPrimary, fontWeight: '600' as const },
+  resourceInfo: { padding: spacing.md },
+  resourceDurationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.xs },
+  resourceDuration: { ...typography.small, color: colors.textTertiary },
+  resourceTitle: { ...typography.callout, color: colors.textPrimary, fontWeight: '600' as const, marginBottom: spacing.sm },
+  resourceLink: { ...typography.caption, color: colors.primary, fontWeight: '600' as const },
 });

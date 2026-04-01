@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { LayoutDashboard, Calendar, FolderOpen, Pill, ArrowLeftRight } from "lucide-react-native";
+import { Home, FileText, Pill, Activity } from "lucide-react-native";
 import React from "react";
 import { colors } from "@/constants/theme";
 
@@ -24,22 +24,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: "Dashboard",
-          tabBarIcon: ({ color, size }) => <LayoutDashboard size={size - 2} color={color} />,
+          title: "Home",
+          tabBarIcon: ({ color, size }) => <Home size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="appointments"
+        name="ledger"
         options={{
-          title: "Appointments",
-          tabBarIcon: ({ color, size }) => <Calendar size={size - 2} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="records"
-        options={{
-          title: "Records",
-          tabBarIcon: ({ color, size }) => <FolderOpen size={size - 2} color={color} />,
+          title: "Ledger",
+          tabBarIcon: ({ color, size }) => <FileText size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -50,11 +43,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="referrals"
+        name="records"
         options={{
-          title: "Referrals",
-          tabBarIcon: ({ color, size }) => <ArrowLeftRight size={size - 2} color={color} />,
+          title: "Health",
+          tabBarIcon: ({ color, size }) => <Activity size={size - 2} color={color} />,
         }}
+      />
+      <Tabs.Screen
+        name="appointments"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="referrals"
+        options={{ href: null }}
       />
     </Tabs>
   );
