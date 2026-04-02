@@ -9,9 +9,10 @@ import {
   Platform,
   Pressable,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Shield, Heart, Phone, ArrowRight, ChevronDown } from 'lucide-react-native';
+import { Phone, ArrowRight, ChevronDown } from 'lucide-react-native';
 import { colors, spacing, typography, borderRadius, shadow } from '@/constants/theme';
 import { useData } from '@/context/DataContext';
 
@@ -111,10 +112,11 @@ export default function AuthScreen() {
         <SafeAreaView style={styles.container}>
           <View style={styles.topSection}>
             <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}>
-              <View style={styles.logoInner}>
-                <Shield size={36} color={colors.textInverse} />
-                <Heart size={18} color={colors.textInverse} style={styles.heartOverlay} />
-              </View>
+              <Image
+                source={require('../assets/images/adaptiver-logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </Animated.View>
 
             <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
@@ -131,7 +133,7 @@ export default function AuthScreen() {
           >
             <Text style={styles.loginTitle}>Sign in with your phone</Text>
             <Text style={styles.loginSubtitle}>
-              We'll send a verification code later to confirm your identity
+              We&apos;ll send a verification code later to confirm your identity
             </Text>
 
             <View style={styles.phoneRow}>
@@ -241,19 +243,17 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     marginBottom: spacing.xxl,
-  },
-  logoInner: {
     width: 80,
     height: 80,
     borderRadius: 24,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  heartOverlay: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
+  logoImage: {
+    width: 58,
+    height: 58,
   },
   appName: {
     fontSize: 32,
