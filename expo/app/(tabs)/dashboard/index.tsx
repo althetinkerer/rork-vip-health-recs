@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   StyleSheet, View, Text, ScrollView, RefreshControl, Pressable, Image,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Bell, Calendar, Sparkles, TrendingUp, MessageSquare, Upload,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react-native';
 import { colors, spacing, typography, borderRadius, shadow } from '@/constants/theme';
 import Card from '@/components/Card';
+import { useData } from '@/context/DataContext';
 import GamificationPanel from '@/components/dashboard/GamificationPanel';
 import DentalChartView from '@/components/dashboard/DentalChartView';
 import {
@@ -41,15 +43,21 @@ const resourceIconMap: Record<string, React.ComponentType<{ size: number; color:
 
 function getGreeting(): string {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (h >= 5 && h < 12) return 'Good Morning';
+  if (h >= 12 && h < 17) return 'Good Afternoon';
+  if (h >= 17 && h < 21) return 'Good Evening';
+  return 'Good Night';
 }
 
 export default function DashboardScreen() {
+  const { healthHistories, gamificationProfile } = useData();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [recordsTab, setRecordsTab] = useState<'medical' | 'dental'>('medical');
   const [referralTab, setReferralTab] = useState<'active' | 'history'>('active');
+
+  const firstName = healthHistories?.[0]?.patientInfo?.firstName || 'there';
+  const avatarUri = gamificationProfile?.avatar_url || AVATAR_URL;
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -65,9 +73,11 @@ export default function DashboardScreen() {
       <SafeAreaView edges={['top']} style={s.safeTop}>
         <View style={s.header}>
           <View style={s.logoRow}>
-            <View style={s.logoIcon}>
-              <Text style={s.logoV}>V</Text>
-            </View>
+            <Image 
+              source={require('../../../assets/images/icon.png')} 
+              style={s.logoIcon} 
+              resizeMode="contain" 
+            />
             <Text style={s.logoText}>
               <Text style={s.logoBold}>VIP</Text>
               <Text style={s.logoLight}>health</Text>
@@ -79,7 +89,9 @@ export default function DashboardScreen() {
               <Bell size={22} color={colors.textPrimary} />
               <View style={s.bellDot} />
             </Pressable>
-            <Image source={{ uri: AVATAR_URL }} style={s.headerAvatar} />
+            <Pressable onPress={() => router.push('/profile')}>
+              <Image source={{ uri: avatarUri }} style={s.headerAvatar} />
+            </Pressable>
           </View>
         </View>
       </SafeAreaView>
@@ -94,7 +106,7 @@ export default function DashboardScreen() {
         <Card style={s.welcomeCard} variant="elevated">
           <View style={s.welcomeTitleRow}>
             <Sparkles size={20} color={colors.primary} />
-            <Text style={s.welcomeTitle}>{getGreeting()}, John!</Text>
+            <Text style={s.welcomeTitle}>{getGreeting()} {firstName}</Text>
           </View>
           <Text style={s.welcomeSubtitle}>Welcome back to your integrated health dashboard</Text>
           <View style={s.welcomeStatsRow}>
@@ -453,7 +465,7 @@ const s = StyleSheet.create({
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   logoIcon: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#1A3A5C', alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent',
   },
   logoV: { fontSize: 18, fontWeight: '800' as const, color: '#FFFFFF' },
   logoText: { fontSize: 18, lineHeight: 22 },

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import {
   Star, TrendingUp, Flame, Trophy, Crown, Users, BookOpen,
-  Calendar, CheckCircle, Circle, Target, Gift,
+  Calendar, CheckCircle, Circle, Target, Gift, RefreshCcw,
 } from 'lucide-react-native';
 import { colors, spacing, typography, borderRadius, shadow } from '@/constants/theme';
 import Card from '@/components/Card';
@@ -14,25 +14,64 @@ import {
   leaderboard,
   type DailyChallenge,
 } from '@/mocks/dashboardData';
+import { useData } from '@/context/DataContext';
 
 const achievementIconMap: Record<string, React.ComponentType<{ size: number; color: string }>> = {
   Flame, Calendar, BookOpen, Crown, Users, Star,
 };
 
 export default function GamificationPanel() {
-  const [challenges, setChallenges] = useState(dailyChallenges);
+  const { gamificationProfile, completedChallenges, completeDailyChallenge, refetchAll } = useData();
+  const [toggledIds, setToggledIds] = useState<Record<string, boolean>>({});
 
-  const handleComplete = (id: string) => {
-    setChallenges(prev =>
-      prev.map(c => (c.id === id ? { ...c, completed: true } : c))
-    );
+  const handleDevReset = async () => {
+    try {
+      const { supabase } = require('@/lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      // Delete their completions
+      await supabase.from('completed_challenges').delete().eq('user_id', user.id);
+      
+      // Reset points
+      await supabase.from('user_profiles').update({ total_points: 0, current_level: 1 }).eq('id', user.id);
+      
+      setToggledIds({});
+      refetchAll();
+      alert('State Reset! ✅');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to reset');
+    }
   };
+
+  const handleToggle = (id: string) => {
+    setToggledIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleComplete = (id: string, points: number) => {
+    completeDailyChallenge({ challengeId: id, points });
+  };
+
+  const points = gamificationProfile?.total_points || 0;
+  const level = gamificationProfile?.current_level || 1;
+  const streak = gamificationProfile?.current_streak || 0;
+  
+  const levelTarget = level * 1000;
+  const prevLevelTarget = (level - 1) * 1000;
+  const progressToNextLevel = ((points - prevLevelTarget) / (levelTarget - prevLevelTarget)) * 100;
+  const pointsToNextLevel = levelTarget - points;
 
   return (
     <View>
-      <View style={s.rewardsHeader}>
-        <Trophy size={20} color={colors.primary} />
-        <Text style={s.sectionTitle}>Health Rewards</Text>
+      <View style={[s.rewardsHeader, { justifyContent: 'space-between' }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Trophy size={20} color={colors.primary} />
+          <Text style={s.sectionTitle}>Health Rewards</Text>
+        </View>
+        <Pressable onPress={handleDevReset} style={{ padding: 4, backgroundColor: '#fee2e2', borderRadius: 4 }}>
+          <Text style={{ fontSize: 10, color: '#ef4444', fontWeight: 'bold' }}>DEV RESET</Text>
+        </Pressable>
       </View>
       <Text style={s.rewardsSubtitle}>Track your progress and earn rewards for healthy habits</Text>
 
@@ -40,25 +79,25 @@ export default function GamificationPanel() {
         <View style={[s.rewardCard, { backgroundColor: '#EDF3FA' }]}>
           <Text style={s.rewardLabel}>Total Points</Text>
           <View style={s.rewardValueRow}>
-            <Text style={s.rewardValue}>{healthRewards.totalPoints.toLocaleString()}</Text>
+            <Text style={s.rewardValue}>{points.toLocaleString()}</Text>
             <Star size={24} color={colors.primary} fill={colors.primary} />
           </View>
         </View>
         <View style={[s.rewardCard, { backgroundColor: '#EDF3FA' }]}>
           <Text style={s.rewardLabel}>Current Level</Text>
           <View style={s.rewardValueRow}>
-            <Text style={s.rewardValue}>{healthRewards.currentLevel}</Text>
+            <Text style={s.rewardValue}>{level}</Text>
             <TrendingUp size={24} color="#3B9BF5" />
           </View>
           <View style={s.levelBar}>
-            <View style={[s.levelFill, { width: '70%' }]} />
+            <View style={[s.levelFill, { width: `${progressToNextLevel}%` }]} />
           </View>
-          <Text style={s.levelText}>{healthRewards.pointsToNextLevel} pts to Level {healthRewards.currentLevel + 1}</Text>
+          <Text style={s.levelText}>{pointsToNextLevel} pts to Level {level + 1}</Text>
         </View>
         <View style={[s.rewardCard, { backgroundColor: '#FFF7ED' }]}>
           <Text style={s.rewardLabel}>Current Streak</Text>
           <View style={s.rewardValueRow}>
-            <Text style={[s.rewardValue, { color: '#F97316' }]}>{healthRewards.currentStreak}</Text>
+            <Text style={[s.rewardValue, { color: '#F97316' }]}>{streak}</Text>
             <Flame size={24} color="#F97316" />
           </View>
           <Text style={[s.rewardValue, { fontSize: 14 }]}>days</Text>
@@ -71,35 +110,45 @@ export default function GamificationPanel() {
           <Target size={18} color={colors.primary} />
           <Text style={s.cardSectionTitle}>Daily Challenges</Text>
         </View>
-        {challenges.map((c: DailyChallenge) => (
-          <View key={c.id} style={[s.challengeItem, c.completed && s.challengeCompleted]}>
-            <View style={s.challengeLeft}>
-              {c.completed ? (
-                <View style={s.challengeCheckDone}>
-                  <CheckCircle size={24} color="#22C55E" />
-                </View>
-              ) : (
-                <View style={s.challengeCheckUndone}>
-                  <Circle size={24} color={colors.border} />
-                </View>
-              )}
-              <View style={s.challengeInfo}>
-                <Text style={s.challengeName}>{c.title}</Text>
-                <Text style={s.challengeDesc}>{c.description}</Text>
-              </View>
-            </View>
-            <View style={s.challengeRight}>
-              <View style={s.pointsBadge}>
-                <Text style={s.pointsText}>+{c.points} pts</Text>
-              </View>
-              {!c.completed && (
-                <Pressable style={s.completeBtn} onPress={() => handleComplete(c.id)}>
-                  <Text style={s.completeBtnText}>Complete</Text>
+        {dailyChallenges.map((c: DailyChallenge) => {
+          const isCompleted = completedChallenges?.includes(c.id) || c.completed;
+          const isToggled = toggledIds[c.id];
+          return (
+            <View key={c.id} style={[s.challengeItem, isCompleted && s.challengeCompleted]}>
+              <View style={s.challengeLeft}>
+                <Pressable onPress={() => !isCompleted && handleToggle(c.id)}>
+                  {isCompleted || isToggled ? (
+                    <View style={s.challengeCheckDone}>
+                      <CheckCircle size={24} color="#22C55E" />
+                    </View>
+                  ) : (
+                    <View style={s.challengeCheckUndone}>
+                      <Circle size={24} color={colors.border} />
+                    </View>
+                  )}
                 </Pressable>
-              )}
+                <View style={s.challengeInfo}>
+                  <Text style={s.challengeName}>{c.title}</Text>
+                  <Text style={s.challengeDesc}>{c.description}</Text>
+                </View>
+              </View>
+              <View style={s.challengeRight}>
+                <View style={s.pointsBadge}>
+                  <Text style={s.pointsText}>+{c.points} pts</Text>
+                </View>
+                {!isCompleted && (c.id === '1' || c.id === '2') && (
+                  <Pressable 
+                    style={[s.completeBtn, !isToggled && s.completeBtnDisabled]} 
+                    onPress={() => isToggled && handleComplete(c.id, c.points)}
+                    disabled={!isToggled}
+                  >
+                    <Text style={s.completeBtnText}>Complete</Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </Card>
 
       <View style={s.goalsAchievementsRow}>
@@ -323,6 +372,9 @@ const s = StyleSheet.create({
     borderRadius: borderRadius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  completeBtnDisabled: {
+    opacity: 0.5,
   },
   completeBtnText: {
     ...typography.caption,

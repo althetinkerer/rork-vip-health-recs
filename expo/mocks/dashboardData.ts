@@ -124,7 +124,7 @@ export const healthRewards = {
 };
 
 export const dailyChallenges: DailyChallenge[] = [
-  { id: '1', title: 'Morning Brush', description: 'Log your morning tooth brushing', points: 50, completed: true, icon: 'CheckCircle' },
+  { id: '1', title: 'Morning Brush', description: 'Log your morning tooth brushing', points: 50, completed: false, icon: 'CheckCircle' },
   { id: '2', title: 'Evening Brush', description: 'Log your evening tooth brushing', points: 50, completed: false, icon: 'Circle' },
   { id: '3', title: 'Learn About Periodontal Disease', description: 'Read 1 educational article today', points: 75, completed: false, icon: 'BookOpen' },
   { id: '4', title: 'Schedule Preventive Care', description: 'Book your next dental checkup', points: 100, completed: false, icon: 'Calendar' },

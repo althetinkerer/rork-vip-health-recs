@@ -234,3 +234,19 @@ export interface ADAHealthHistory {
     parentGuardianSignature?: string;
   };
 }
+
+export interface UserProfile {
+  id: string;
+  total_points: number;
+  current_level: number;
+  current_streak: number;
+  last_streak_date?: string;
+  avatar_url?: string;
+}
+
+export interface CompletedChallenge {
+  id: string;
+  user_id: string;
+  challenge_id: string;
+  completed_at: string;
+}

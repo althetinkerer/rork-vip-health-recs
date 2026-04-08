@@ -9,9 +9,10 @@ import {
   Platform,
   Pressable,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Shield, Heart, Phone, ArrowRight, ChevronDown } from 'lucide-react-native';
+import { Phone, ArrowRight, ChevronDown } from 'lucide-react-native';
 import { colors, spacing, typography, borderRadius, shadow } from '@/constants/theme';
 import { useData } from '@/context/DataContext';
 
@@ -46,8 +47,10 @@ function stripPhone(raw: string): string {
 }
 
 export default function AuthScreen() {
-  const { login } = useData();
+  const { login, verifyOtp } = useData();
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phoneRaw, setPhoneRaw] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<CountryCode>(COUNTRY_CODES[0]);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
@@ -84,7 +87,13 @@ export default function AuthScreen() {
     if (error) setError('');
   }, [error]);
 
-  const handleContinue = useCallback(async () => {
+  const handleOtpChange = useCallback((text: string) => {
+    const cleaned = text.replace(/\D/g, '').slice(0, 6);
+    setOtpCode(cleaned);
+    if (error) setError('');
+  }, [error]);
+
+  const handleContinuePhone = useCallback(async () => {
     if (!isValid) {
       setError('Please enter a valid 10-digit phone number');
       return;
@@ -92,15 +101,30 @@ export default function AuthScreen() {
     setIsLoading(true);
     try {
       const fullNumber = `${selectedCountry.code}${digits}`;
-      console.log('Logging in with phone:', fullNumber);
       await login(fullNumber);
-    } catch (e) {
-      console.log('Login error:', e);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      setStep('otp');
+    } catch (e: any) {
+      setError(e.message || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
   }, [isValid, digits, selectedCountry.code, login]);
+
+  const handleVerifyOtp = useCallback(async () => {
+    if (otpCode.length < 6) {
+      setError('Please enter a valid 6-digit code');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const fullNumber = `${selectedCountry.code}${digits}`;
+      await verifyOtp(fullNumber, otpCode);
+    } catch (e: any) {
+      setError(e.message || 'Invalid code. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [otpCode, digits, selectedCountry.code, verifyOtp]);
 
   return (
     <View style={styles.background}>
@@ -112,8 +136,7 @@ export default function AuthScreen() {
           <View style={styles.topSection}>
             <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}>
               <View style={styles.logoInner}>
-                <Shield size={36} color={colors.textInverse} />
-                <Heart size={18} color={colors.textInverse} style={styles.heartOverlay} />
+                <Image source={require('../assets/images/icon.png')} style={{ width: 80, height: 80, borderRadius: 24 }} resizeMode="contain" />
               </View>
             </Animated.View>
 
@@ -129,90 +152,139 @@ export default function AuthScreen() {
               { opacity: formFade, transform: [{ translateY: formSlide }] },
             ]}
           >
-            <Text style={styles.loginTitle}>Sign in with your phone</Text>
-            <Text style={styles.loginSubtitle}>
-              We'll send a verification code later to confirm your identity
-            </Text>
+            {step === 'phone' ? (
+              <>
+                <Text style={styles.loginTitle}>Sign in with your phone</Text>
+                <Text style={styles.loginSubtitle}>
+                  We'll send a verification code to confirm your identity
+                </Text>
 
-            <View style={styles.phoneRow}>
-              <Pressable
-                style={[
-                  styles.countrySelector,
-                  showCountryPicker && styles.countrySelectorActive,
-                ]}
-                onPress={() => setShowCountryPicker(!showCountryPicker)}
-              >
-                <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
-                <Text style={styles.countryCode}>{selectedCountry.code}</Text>
-                <ChevronDown size={14} color={colors.textSecondary} />
-              </Pressable>
-
-              <View
-                style={[
-                  styles.phoneInputContainer,
-                  inputFocused && styles.phoneInputFocused,
-                  error ? styles.phoneInputError : null,
-                ]}
-              >
-                <Phone size={18} color={inputFocused ? colors.primary : colors.textTertiary} />
-                <TextInput
-                  ref={inputRef}
-                  style={styles.phoneInput}
-                  placeholder="(555) 123-4567"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="phone-pad"
-                  value={formatPhoneDisplay(phoneRaw)}
-                  onChangeText={handlePhoneChange}
-                  onFocus={() => setInputFocused(true)}
-                  onBlur={() => setInputFocused(false)}
-                  maxLength={14}
-                  testID="phone-input"
-                />
-              </View>
-            </View>
-
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-            {showCountryPicker && (
-              <View style={styles.countryDropdown}>
-                {COUNTRY_CODES.map((c) => (
+                <View style={styles.phoneRow}>
                   <Pressable
-                    key={c.code}
                     style={[
-                      styles.countryOption,
-                      selectedCountry.code === c.code && styles.countryOptionActive,
+                      styles.countrySelector,
+                      showCountryPicker && styles.countrySelectorActive,
                     ]}
-                    onPress={() => {
-                      setSelectedCountry(c);
-                      setShowCountryPicker(false);
-                    }}
+                    onPress={() => setShowCountryPicker(!showCountryPicker)}
                   >
-                    <Text style={styles.countryOptionFlag}>{c.flag}</Text>
-                    <Text style={styles.countryOptionName}>{c.name}</Text>
-                    <Text style={styles.countryOptionCode}>{c.code}</Text>
+                    <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
+                    <Text style={styles.countryCode}>{selectedCountry.code}</Text>
+                    <ChevronDown size={14} color={colors.textSecondary} />
                   </Pressable>
-                ))}
-              </View>
-            )}
 
-            <Pressable
-              style={[
-                styles.continueButton,
-                !isValid && styles.continueButtonDisabled,
-              ]}
-              onPress={handleContinue}
-              disabled={!isValid || isLoading}
-              testID="continue-button"
-            >
-              {isLoading ? (
-                <Text style={styles.continueButtonText}>Signing in...</Text>
-              ) : (
-                <>
-                  <Text style={styles.continueButtonText}>Continue</Text>
-                  <ArrowRight size={18} color={colors.textInverse} />
-                </>
-              )}
-            </Pressable>
+                  <View
+                    style={[
+                      styles.phoneInputContainer,
+                      inputFocused && styles.phoneInputFocused,
+                      error ? styles.phoneInputError : null,
+                    ]}
+                  >
+                    <Phone size={18} color={inputFocused ? colors.primary : colors.textTertiary} />
+                    <TextInput
+                      ref={inputRef}
+                      style={styles.phoneInput}
+                      placeholder="(555) 123-4567"
+                      placeholderTextColor={colors.textTertiary}
+                      keyboardType="phone-pad"
+                      value={formatPhoneDisplay(phoneRaw)}
+                      onChangeText={handlePhoneChange}
+                      onFocus={() => setInputFocused(true)}
+                      onBlur={() => setInputFocused(false)}
+                      maxLength={14}
+                      testID="phone-input"
+                    />
+                  </View>
+                </View>
+
+                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+                {showCountryPicker && (
+                  <View style={styles.countryDropdown}>
+                    {COUNTRY_CODES.map((c) => (
+                      <Pressable
+                        key={c.code}
+                        style={[
+                          styles.countryOption,
+                          selectedCountry.code === c.code && styles.countryOptionActive,
+                        ]}
+                        onPress={() => {
+                          setSelectedCountry(c);
+                          setShowCountryPicker(false);
+                        }}
+                      >
+                        <Text style={styles.countryOptionFlag}>{c.flag}</Text>
+                        <Text style={styles.countryOptionName}>{c.name}</Text>
+                        <Text style={styles.countryOptionCode}>{c.code}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+
+                <Pressable
+                  style={[
+                    styles.continueButton,
+                    !isValid && styles.continueButtonDisabled,
+                  ]}
+                  onPress={handleContinuePhone}
+                  disabled={!isValid || isLoading}
+                  testID="continue-button"
+                >
+                  {isLoading ? (
+                    <Text style={styles.continueButtonText}>Sending code...</Text>
+                  ) : (
+                    <>
+                      <Text style={styles.continueButtonText}>Continue</Text>
+                      <ArrowRight size={18} color={colors.textInverse} />
+                    </>
+                  )}
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.loginTitle}>Enter verification code</Text>
+                <Text style={styles.loginSubtitle}>
+                  We sent a 6-digit code to {selectedCountry.code} {formatPhoneDisplay(phoneRaw)}
+                </Text>
+
+                <View style={[styles.phoneInputContainer, inputFocused && styles.phoneInputFocused, error ? styles.phoneInputError : null, { marginBottom: spacing.md }]}>
+                  <TextInput
+                    ref={inputRef}
+                    style={[styles.phoneInput, { textAlign: 'center', fontSize: 24, letterSpacing: 8 }]}
+                    placeholder="000000"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="number-pad"
+                    value={otpCode}
+                    onChangeText={handleOtpChange}
+                    onFocus={() => setInputFocused(true)}
+                    onBlur={() => setInputFocused(false)}
+                    maxLength={6}
+                    testID="otp-input"
+                  />
+                </View>
+
+                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+                <Pressable onPress={() => setStep('phone')} style={{ marginBottom: spacing.sm, alignItems: 'center' }}>
+                  <Text style={{ color: colors.primary, ...typography.callout, fontWeight: '600' as const }}>Change phone number</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.continueButton,
+                    otpCode.length < 6 && styles.continueButtonDisabled,
+                  ]}
+                  onPress={handleVerifyOtp}
+                  disabled={otpCode.length < 6 || isLoading}
+                  testID="verify-button"
+                >
+                  {isLoading ? (
+                    <Text style={styles.continueButtonText}>Verifying...</Text>
+                  ) : (
+                    <Text style={styles.continueButtonText}>Verify & Login</Text>
+                  )}
+                </Pressable>
+              </>
+            )}
 
             <Text style={styles.disclaimer}>
               By continuing, you agree to our Terms of Service and Privacy Policy.

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import createContextHook from '@nkzw/create-context-hook';
+import { AppState, AppStateStatus } from 'react-native';
+import { supabase } from '@/lib/supabase';
 import * as repo from '@/data/repository';
 import { Appointment, Medication, Provider, Referral, ADAHealthHistory } from '@/types';
 
@@ -9,46 +11,89 @@ export const [DataProvider, useData] = createContextHook(() => {
   const [isSeeded, setIsSeeded] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
+
+  // Setup Supabase Auth listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+      setPhoneNumber(session?.user?.phone || null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      setPhoneNumber(session?.user?.phone || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Handle auto-refresh for Supabase
+  useEffect(() => {
+    const handleAppStateChange = (state: AppStateStatus) => {
+      if (state === 'active') supabase.auth.startAutoRefresh();
+      else supabase.auth.stopAutoRefresh();
+    };
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     void (async () => {
       await repo.seedData();
-      const auth = await repo.isAuthenticated();
       const onboarded = await repo.isOnboardingComplete();
-      setIsAuthenticated(auth);
       setIsOnboarded(onboarded);
       setIsSeeded(true);
     })();
-  }, []);
+  }, [isAuthenticated]);
 
   const appointmentsQuery = useQuery({
     queryKey: ['appointments'],
     queryFn: repo.getAppointments,
-    enabled: isSeeded,
+    enabled: Boolean(isSeeded && isAuthenticated),
   });
 
   const recordsQuery = useQuery({
     queryKey: ['records'],
     queryFn: repo.getRecords,
-    enabled: isSeeded,
+    enabled: Boolean(isSeeded && isAuthenticated),
   });
 
   const medicationsQuery = useQuery({
     queryKey: ['medications'],
     queryFn: repo.getMedications,
-    enabled: isSeeded,
+    enabled: Boolean(isSeeded && isAuthenticated),
   });
 
   const providersQuery = useQuery({
     queryKey: ['providers'],
     queryFn: repo.getProviders,
-    enabled: isSeeded,
+    enabled: Boolean(isSeeded && isAuthenticated),
   });
 
   const referralsQuery = useQuery({
     queryKey: ['referrals'],
     queryFn: repo.getReferrals,
-    enabled: isSeeded,
+    enabled: Boolean(isSeeded && isAuthenticated),
+  });
+
+  const healthHistoriesQuery = useQuery({
+    queryKey: ['healthHistories'],
+    queryFn: repo.getHealthHistories,
+    enabled: Boolean(isSeeded && isAuthenticated),
+  });
+
+  const gamificationProfileQuery = useQuery({
+    queryKey: ['gamificationProfile'],
+    queryFn: repo.getGamificationProfile,
+    enabled: Boolean(isSeeded && isAuthenticated),
+  });
+
+  const completedChallengesQuery = useQuery({
+    queryKey: ['completedChallenges'],
+    queryFn: repo.getCompletedChallenges,
+    enabled: Boolean(isSeeded && isAuthenticated),
   });
 
   const addAppointmentMutation = useMutation({
@@ -89,47 +134,48 @@ export const [DataProvider, useData] = createContextHook(() => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['referrals'] }),
   });
 
-  const healthHistoriesQuery = useQuery({
-    queryKey: ['healthHistories'],
-    queryFn: repo.getHealthHistories,
-    enabled: isSeeded,
-  });
-
   const addHealthHistoryMutation = useMutation({
     mutationFn: repo.addHealthHistory,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['healthHistories'] }),
   });
 
-  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
+  const completeDailyChallengeMutation = useMutation({
+    mutationFn: ({ challengeId, points }: { challengeId: string; points: number }) => repo.completeDailyChallenge(challengeId, points),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gamificationProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['completedChallenges'] });
+    },
+  });
 
-  useEffect(() => {
-    void (async () => {
-      const stored = await repo.getPhoneNumber();
-      if (stored) setPhoneNumber(stored);
-    })();
-  }, []);
+  const uploadAvatarMutation = useMutation({
+    mutationFn: ({ imageUri, ext }: { imageUri: string; ext: string }) => repo.uploadAvatar(imageUri, ext),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gamificationProfile'] });
+    },
+  });
 
   const login = useCallback(async (phone: string) => {
-    await repo.setPhoneNumber(phone);
-    await repo.setAuthenticated(true);
-    setPhoneNumber(phone);
-    setIsAuthenticated(true);
+    const { error } = await supabase.auth.signInWithOtp({ phone });
+    if (error) throw error;
+  }, []);
+
+  const verifyOtp = useCallback(async (phone: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+    if (error) throw error;
   }, []);
 
   const logout = useCallback(async () => {
-    await repo.setAuthenticated(false);
-    setIsAuthenticated(false);
+    await supabase.auth.signOut();
   }, []);
 
   const completeOnboarding = useCallback(async (history: ADAHealthHistory) => {
     await repo.addHealthHistory(history);
-    await repo.setOnboardingComplete(true);
     setIsOnboarded(true);
     void queryClient.invalidateQueries({ queryKey: ['healthHistories'] });
   }, [queryClient]);
 
   const getProvider = useCallback((id: string): Provider | undefined => {
-    return providersQuery.data?.find(p => p.id === id);
+    return (providersQuery.data as Provider[] | undefined)?.find((p: Provider) => p.id === id);
   }, [providersQuery.data]);
 
   const refetchAll = useCallback(() => {
@@ -142,6 +188,7 @@ export const [DataProvider, useData] = createContextHook(() => {
     isOnboarded,
     phoneNumber,
     login,
+    verifyOtp,
     logout,
     completeOnboarding,
     appointments: appointmentsQuery.data ?? [],
@@ -165,15 +212,20 @@ export const [DataProvider, useData] = createContextHook(() => {
     healthHistories: healthHistoriesQuery.data ?? [],
     healthHistoriesLoading: healthHistoriesQuery.isLoading,
     addHealthHistory: addHealthHistoryMutation.mutate,
+    gamificationProfile: gamificationProfileQuery.data,
+    completedChallenges: completedChallengesQuery.data ?? [],
+    completeDailyChallenge: completeDailyChallengeMutation.mutate,
+    uploadAvatar: uploadAvatarMutation.mutateAsync,
     refetchAll,
   }), [
-    isSeeded, isAuthenticated, isOnboarded, phoneNumber, login, logout, completeOnboarding,
+    isSeeded, isAuthenticated, isOnboarded, phoneNumber, login, verifyOtp, logout, completeOnboarding,
     appointmentsQuery.data, appointmentsQuery.isLoading, addAppointmentMutation.mutate, updateAppointmentMutation.mutate,
     recordsQuery.data, recordsQuery.isLoading, addRecordMutation.mutate,
     medicationsQuery.data, medicationsQuery.isLoading, addMedicationMutation.mutate, updateMedicationMutation.mutate,
     providersQuery.data, providersQuery.isLoading, getProvider,
     referralsQuery.data, referralsQuery.isLoading, addReferralMutation.mutate, updateReferralMutation.mutate,
     healthHistoriesQuery.data, healthHistoriesQuery.isLoading, addHealthHistoryMutation.mutate,
+    gamificationProfileQuery.data, completedChallengesQuery.data, completeDailyChallengeMutation.mutate,
     refetchAll,
   ]);
 });

@@ -16,7 +16,9 @@ function RootLayoutNav() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isSeeded || isAuthenticated === null || isOnboarded === null) return;
+    if (isAuthenticated === null) return;
+    if (isAuthenticated && (!isSeeded || isOnboarded === null)) return;
+
     void SplashScreen.hideAsync();
 
     const inAuth = segments[0] === "auth";
