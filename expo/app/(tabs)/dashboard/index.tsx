@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  StyleSheet, View, Text, ScrollView, RefreshControl, Pressable, Image,
+  StyleSheet, View, Text, ScrollView, RefreshControl, Pressable, Image, Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -50,7 +50,11 @@ function getGreeting(): string {
 }
 
 export default function DashboardScreen() {
-  const { healthHistories, gamificationProfile } = useData();
+  const { 
+    gamificationProfile, appointments, records, medications, 
+    healthHistories, isSeeded, isAuthenticated, getProvider,
+    insurancePolicies
+  } = useData();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [recordsTab, setRecordsTab] = useState<'medical' | 'dental'>('medical');
@@ -142,7 +146,27 @@ export default function DashboardScreen() {
           {quickActions.map((action: QuickAction) => {
             const Icon = iconMap[action.icon] || Calendar;
             return (
-              <Pressable key={action.id} style={[s.actionItem, { backgroundColor: action.bgColor }]}>
+              <Pressable 
+                key={action.id} 
+                style={[s.actionItem, { backgroundColor: action.bgColor }]}
+                onPress={() => {
+                  if (action.id === '1') {
+                    router.push('/(tabs)/appointments/create');
+                  } else if (action.id === '2') {
+                    router.push('/message-provider');
+                  } else if (action.id === '3') {
+                    router.push('/upload');
+                  } else if (action.id === '5') {
+                    router.navigate('/medications');
+                  } else if (action.id === '6') {
+                    router.push('/refills');
+                  } else if (action.id === '7') {
+                    router.push('/rx-history');
+                  } else if (action.id === '8') {
+                    router.push('/reminders');
+                  }
+                }}
+              >
                 <Icon size={28} color={action.color} />
                 <Text style={[s.actionLabel, { color: action.color }]}>{action.label}</Text>
               </Pressable>
@@ -160,7 +184,14 @@ export default function DashboardScreen() {
           contentContainerStyle={s.insuranceScroll}
           style={s.insuranceContainer}
         >
-          {insuranceData.map((ins: InsuranceInfo) => (
+          {insurancePolicies?.length === 0 ? (
+            <Pressable style={[s.insuranceCard, { justifyContent: 'center', alignItems: 'center', minHeight: 180 }]} onPress={() => router.push('/upload')}>
+              <Shield size={40} color={colors.textTertiary} style={{ marginBottom: spacing.md }} />
+              <Text style={{ ...typography.headline, color: colors.textSecondary, marginBottom: 8 }}>No Insurance Found</Text>
+              <Text style={{ ...typography.body, color: colors.textTertiary, textAlign: 'center' }}>Upload your insurance card to instantly verify your live eligibility and financial limits via Payer APIs!</Text>
+            </Pressable>
+          ) : (
+            insurancePolicies?.map((ins: any) => (
             <View key={ins.type} style={s.insuranceCard}>
               <View style={s.insuranceHeader}>
                 <View style={s.insuranceIconBox}>
@@ -210,7 +241,7 @@ export default function DashboardScreen() {
                 </View>
               </View>
 
-              {ins.lines.map((line, i) => (
+              {ins.lines.map((line: any, i: number) => (
                 <View key={i} style={s.insuranceLine}>
                   <Text style={s.insuranceLineLabel}>{line.label}</Text>
                   <Text style={[s.insuranceLineValue, line.highlight && { color: colors.primary }]}>{line.value}</Text>
@@ -227,7 +258,8 @@ export default function DashboardScreen() {
                 <Text style={s.insurancePortalText}>{ins.portalLabel}</Text>
               </Pressable>
             </View>
-          ))}
+            ))
+          )}
         </ScrollView>
 
         {/* Medical-Dental Insights */}
@@ -548,10 +580,10 @@ const s = StyleSheet.create({
   insuranceHolderLabel: { ...typography.caption, color: colors.textSecondary },
   insuranceHolderValue: { ...typography.callout, color: colors.textPrimary, fontWeight: '600' as const },
   insuranceLine: {
-    flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs,
+    flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs, alignItems: 'flex-start'
   },
-  insuranceLineLabel: { ...typography.caption, color: colors.textSecondary },
-  insuranceLineValue: { ...typography.callout, color: colors.textPrimary, fontWeight: '600' as const },
+  insuranceLineLabel: { ...typography.caption, color: colors.textSecondary, marginRight: spacing.sm },
+  insuranceLineValue: { ...typography.callout, color: colors.textPrimary, fontWeight: '600' as const, flexShrink: 1, textAlign: 'right' },
   insuranceServiceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md },
   insuranceServiceLabel: { ...typography.caption, color: colors.textSecondary },
   insuranceServiceNumber: { ...typography.headline, color: colors.primary, marginBottom: spacing.md },

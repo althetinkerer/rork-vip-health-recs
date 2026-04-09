@@ -13,6 +13,9 @@ export const [DataProvider, useData] = createContextHook(() => {
   const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
 
+  // Local UI state specifically for demonstrating Insurance OCR Upload Flow
+  const [insurancePolicies, setInsurancePolicies] = useState<any[]>([]);
+
   // Setup Supabase Auth listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -182,6 +185,10 @@ export const [DataProvider, useData] = createContextHook(() => {
     void queryClient.invalidateQueries();
   }, [queryClient]);
 
+  const addInsurancePolicy = useCallback((policy: any) => {
+    setInsurancePolicies(prev => [policy, ...prev]);
+  }, []);
+
   return useMemo(() => ({
     isSeeded,
     isAuthenticated,
@@ -217,6 +224,8 @@ export const [DataProvider, useData] = createContextHook(() => {
     completeDailyChallenge: completeDailyChallengeMutation.mutate,
     uploadAvatar: uploadAvatarMutation.mutateAsync,
     refetchAll,
+    insurancePolicies,
+    addInsurancePolicy,
   }), [
     isSeeded, isAuthenticated, isOnboarded, phoneNumber, login, verifyOtp, logout, completeOnboarding,
     appointmentsQuery.data, appointmentsQuery.isLoading, addAppointmentMutation.mutate, updateAppointmentMutation.mutate,
@@ -226,6 +235,6 @@ export const [DataProvider, useData] = createContextHook(() => {
     referralsQuery.data, referralsQuery.isLoading, addReferralMutation.mutate, updateReferralMutation.mutate,
     healthHistoriesQuery.data, healthHistoriesQuery.isLoading, addHealthHistoryMutation.mutate,
     gamificationProfileQuery.data, completedChallengesQuery.data, completeDailyChallengeMutation.mutate,
-    refetchAll,
+    refetchAll, insurancePolicies, addInsurancePolicy
   ]);
 });

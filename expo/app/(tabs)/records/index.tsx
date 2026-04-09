@@ -6,6 +6,7 @@ import { colors, spacing, typography, borderRadius, shadow } from '@/constants/t
 import { useData } from '@/context/DataContext';
 import Chip from '@/components/Chip';
 import EmptyState from '@/components/EmptyState';
+import IntegrativeInsightsCard from '@/components/records/IntegrativeInsightsCard';
 import { HealthRecord, RecordCategory } from '@/types';
 
 const CATEGORIES: { label: string; value: string }[] = [
@@ -114,6 +115,7 @@ export default function RecordsListScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={<IntegrativeInsightsCard />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListEmptyComponent={<EmptyState title="No Records" message="No health records match your search." />}
       />

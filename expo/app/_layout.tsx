@@ -47,6 +47,8 @@ function RootLayoutNav() {
       <Stack.Screen name="auth" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="modal" options={{ presentation: "modal", title: "About" }} />
+      <Stack.Screen name="message-provider" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="reminders" options={{ presentation: "modal", headerShown: false }} />
     </Stack>
   );
 }
