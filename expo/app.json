@@ -38,7 +38,14 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow VIP Health Recs to access your photos to update your profile picture.",
+          "cameraPermission": "Allow VIP Health Recs to access your camera to take a profile picture."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
