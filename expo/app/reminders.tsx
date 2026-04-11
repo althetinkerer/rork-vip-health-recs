@@ -502,8 +502,6 @@ function StatPill({ value, label, color }: { value: string; label: string; color
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const MINUTE_STEP = 5;
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxxl },

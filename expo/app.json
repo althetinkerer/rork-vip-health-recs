@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.rork.u4t200pyufus5glhtyl4z"
+      "bundleIdentifier": "app.rork.u4t200pyufus5glhtyl4z",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -39,6 +42,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": "https://rork.com/"
+      },
+      "eas": {
+        "projectId": "0edc327d-ca7f-4084-8a42-ad82d44abc2e"
+      }
     }
   }
 }
