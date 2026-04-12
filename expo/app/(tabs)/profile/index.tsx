@@ -32,6 +32,7 @@ export default function ProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -42,7 +43,7 @@ export default function ProfileScreen() {
         const extMatch = uri.match(/\.(\w+)$/);
         const ext = extMatch ? extMatch[1] : 'jpeg';
         
-        await uploadAvatar({ imageUri: uri, ext });
+        await uploadAvatar({ imageUri: uri, ext, base64: result.assets[0].base64 || '' });
       }
     } catch (err) {
       console.error(err);

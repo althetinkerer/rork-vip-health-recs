@@ -324,19 +324,30 @@ export async function addGamificationPoints(amount: number) {
   if (error) throw error;
 }
 
-export async function uploadAvatar(imageUri: string, ext: string) {
+// Simple base64 to ArrayBuffer converter
+function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+export async function uploadAvatar(imageUri: string, ext: string, base64?: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
   const fileName = `${user.id}/${Date.now()}.${ext}`;
 
-  // Read the local file as a blob
-  const res = await fetch(imageUri);
-  const blob = await res.blob();
+  if (!base64) throw new Error('Missing base64 image data');
+
+  const arrayBuffer = decodeBase64ToArrayBuffer(base64);
   
   const { error } = await supabase.storage
     .from('avatars')
-    .upload(fileName, blob, {
+    .upload(fileName, arrayBuffer, {
       contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
       upsert: true
     });

@@ -129,3 +129,38 @@ create policy "Users can update their own referrals" on referrals for update usi
 create policy "Users can view their own health histories" on health_histories for select using (auth.uid() = user_id);
 create policy "Users can insert their own health histories" on health_histories for insert with check (auth.uid() = user_id);
 create policy "Users can update their own health histories" on health_histories for update using (auth.uid() = user_id);
+
+-- Gamification / Profiles
+create table user_profiles (
+  id uuid references auth.users not null primary key,
+  total_points integer default 0 not null,
+  current_level integer default 1 not null,
+  current_streak integer default 0 not null,
+  avatar_url text,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create table completed_challenges (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users not null,
+  challenge_id text not null,
+  completed_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table user_profiles enable row level security;
+alter table completed_challenges enable row level security;
+
+create policy "Users can view their own profile" on user_profiles for select using (auth.uid() = id);
+create policy "Users can update their own profile" on user_profiles for update using (auth.uid() = id);
+create policy "Users can insert their own profile" on user_profiles for insert with check (auth.uid() = id);
+
+create policy "Users can view their own completed challenges" on completed_challenges for select using (auth.uid() = user_id);
+create policy "Users can insert their own completed challenges" on completed_challenges for insert with check (auth.uid() = user_id);
+
+-- Storage bucket for avatars (run these commands manually in SQL editor if bucket creation via SQL depends on Supabase version)
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict do nothing;
+
+create policy "Avatar images are publicly accessible." on storage.objects for select using ( bucket_id = 'avatars' );
+create policy "Anyone can upload an avatar." on storage.objects for insert with check ( bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1] );
+create policy "Anyone can update their own avatar." on storage.objects for update using ( bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1] );
+

@@ -151,7 +151,7 @@ export const [DataProvider, useData] = createContextHook(() => {
   });
 
   const uploadAvatarMutation = useMutation({
-    mutationFn: ({ imageUri, ext }: { imageUri: string; ext: string }) => repo.uploadAvatar(imageUri, ext),
+    mutationFn: ({ imageUri, ext, base64 }: { imageUri: string; ext: string; base64: string }) => repo.uploadAvatar(imageUri, ext, base64),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gamificationProfile'] });
     },
