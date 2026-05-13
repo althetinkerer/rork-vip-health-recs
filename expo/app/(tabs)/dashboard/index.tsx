@@ -59,6 +59,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [recordsTab, setRecordsTab] = useState<'medical' | 'dental'>('medical');
   const [referralTab, setReferralTab] = useState<'active' | 'history'>('active');
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const firstName = healthHistories?.[0]?.patientInfo?.firstName || 'there';
   const avatarUri = gamificationProfile?.avatar_url || AVATAR_URL;
@@ -89,10 +90,29 @@ export default function DashboardScreen() {
             </Text>
           </View>
           <View style={s.headerRight}>
-            <Pressable style={s.bellBtn} hitSlop={8}>
+            <Pressable
+              style={s.bellBtn}
+              hitSlop={8}
+              onPress={() => setShowNotifications((prev) => !prev)}
+            >
               <Bell size={22} color={colors.textPrimary} />
               <View style={s.bellDot} />
             </Pressable>
+            {showNotifications && (
+              <View style={s.notificationDropdown}>
+                <View style={s.notificationDropdownBody}>
+                  <View style={s.notificationHeader}>
+                    <Text style={s.notificationTitle}>Notifications</Text>
+                  </View>
+                  <View style={s.notificationEmptyState}>
+                    <View style={s.notificationEmptyIconWrap}>
+                      <Bell size={18} color={colors.textTertiary} />
+                    </View>
+                    <Text style={s.notificationEmptyText}>No notifications found</Text>
+                  </View>
+                </View>
+              </View>
+            )}
             <Pressable onPress={() => router.push('/profile')}>
               <Image source={{ uri: avatarUri }} style={s.headerAvatar} />
             </Pressable>
@@ -156,6 +176,8 @@ export default function DashboardScreen() {
                     router.push('/message-provider');
                   } else if (action.id === '3') {
                     router.push('/upload');
+                  } else if (action.id === '4') {
+                    router.push('/refills');
                   } else if (action.id === '5') {
                     router.navigate('/medications');
                   } else if (action.id === '6') {
@@ -488,11 +510,17 @@ export default function DashboardScreen() {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  safeTop: { backgroundColor: colors.surface },
+  safeTop: {
+    backgroundColor: colors.surface,
+    zIndex: 20,
+    elevation: 20,
+    overflow: 'visible' as const,
+  },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: spacing.md,
     backgroundColor: colors.surface,
+    overflow: 'visible' as const,
   },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   logoIcon: {
@@ -503,12 +531,71 @@ const s = StyleSheet.create({
   logoText: { fontSize: 18, lineHeight: 22 },
   logoBold: { fontWeight: '700' as const, color: colors.textPrimary },
   logoLight: { fontWeight: '400' as const, color: colors.textSecondary },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    position: 'relative' as const,
+    overflow: 'visible' as const,
+  },
   bellBtn: { position: 'relative' as const },
   bellDot: {
     position: 'absolute' as const, top: -2, right: -2,
     width: 8, height: 8, borderRadius: 4,
     backgroundColor: colors.error, borderWidth: 1.5, borderColor: colors.surface,
+  },
+  notificationDropdown: {
+    position: 'absolute' as const,
+    top: 44,
+    right: 0,
+    width: 260,
+    zIndex: 1000,
+    elevation: 8,
+  },
+  notificationDropdownBody: {
+    minHeight: 190,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    ...shadow.md,
+  },
+  notificationHeader: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.surfaceSecondary,
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
+  },
+  notificationTitle: {
+    ...typography.callout,
+    color: colors.textPrimary,
+    fontWeight: '700' as const,
+  },
+  notificationEmptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    gap: spacing.sm,
+  },
+  notificationEmptyIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  notificationEmptyText: {
+    ...typography.callout,
+    color: colors.textTertiary,
+    fontWeight: '600' as const,
   },
   headerAvatar: { width: 36, height: 36, borderRadius: 18 },
   scroll: { flex: 1 },
