@@ -1,10 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import createContextHook from '@nkzw/create-context-hook';
 import { AppState, AppStateStatus } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import * as repo from '@/data/repository';
 import { Appointment, Medication, Provider, Referral, ADAHealthHistory } from '@/types';
+import { AppNotification } from '@/types/notifications';
+
+const NOTIF_STORAGE_KEY = 'vip_notifications_meta'; // { readIds: string[], dismissedIds: string[] }
 
 export const [DataProvider, useData] = createContextHook(() => {
   const queryClient = useQueryClient();
@@ -15,6 +19,11 @@ export const [DataProvider, useData] = createContextHook(() => {
 
   // Local UI state specifically for demonstrating Insurance OCR Upload Flow
   const [insurancePolicies, setInsurancePolicies] = useState<any[]>([]);
+
+  // ── Notification state ──────────────────────────────────────────────────────
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const metaLoaded = useRef(false);
 
   // Setup Supabase Auth listener
   useEffect(() => {
@@ -189,6 +198,186 @@ export const [DataProvider, useData] = createContextHook(() => {
     setInsurancePolicies(prev => [policy, ...prev]);
   }, []);
 
+  // ── Load persisted read/dismissed state ─────────────────────────────────────
+  useEffect(() => {
+    if (metaLoaded.current) return;
+    metaLoaded.current = true;
+    AsyncStorage.getItem(NOTIF_STORAGE_KEY).then(raw => {
+      if (!raw) return;
+      try {
+        const meta = JSON.parse(raw) as { readIds?: string[]; dismissedIds?: string[] };
+        if (meta.readIds) setReadIds(new Set(meta.readIds));
+        if (meta.dismissedIds) setDismissedIds(new Set(meta.dismissedIds));
+      } catch { /* ignore */ }
+    });
+  }, []);
+
+  const persistMeta = useCallback((rIds: Set<string>, dIds: Set<string>) => {
+    void AsyncStorage.setItem(
+      NOTIF_STORAGE_KEY,
+      JSON.stringify({ readIds: [...rIds], dismissedIds: [...dIds] }),
+    );
+  }, []);
+
+  // ── Derive notifications from live data ──────────────────────────────────────
+  const allNotifications = useMemo(() => {
+    const notifs: AppNotification[] = [];
+    const now = new Date();
+
+    // Appointment reminders
+    const appts = (appointmentsQuery.data ?? []) as Appointment[];
+    appts
+      .filter(a => a.status === 'UPCOMING')
+      .forEach(a => {
+        notifs.push({
+          id: `appt-${a.id}`,
+          category: 'appointment',
+          title: 'Upcoming Appointment',
+          body: `${a.title} with ${a.providerName} on ${a.date} at ${a.time}`,
+          timestamp: new Date(now.getTime() - 1000 * 60 * 15), // 15 min ago
+          read: false,
+          actionRoute: '/(tabs)/appointments',
+        });
+      });
+
+    // Gamification streak
+    const gp = gamificationProfileQuery.data as { current_streak?: number; total_points?: number } | undefined;
+    if (gp?.current_streak && gp.current_streak > 0) {
+      notifs.push({
+        id: `streak-${gp.current_streak}`,
+        category: 'rewards',
+        title: `🔥 ${gp.current_streak}-Day Streak!`,
+        body: "You're on a roll — keep completing daily challenges to grow your streak.",
+        timestamp: new Date(now.getTime() - 1000 * 60 * 60 * 2), // 2h ago
+        read: false,
+        actionRoute: '/(tabs)/dashboard',
+      });
+    }
+
+    // Completed challenges
+    const challenges = (completedChallengesQuery.data ?? []) as Array<{ id: string; challenge_id: string; completed_at: string }>;
+    if (challenges.length > 0) {
+      const latest = challenges[0];
+      notifs.push({
+        id: `challenge-${latest.id}`,
+        category: 'rewards',
+        title: '🏆 Challenge Completed!',
+        body: 'You earned points for completing a daily health challenge.',
+        timestamp: new Date(latest.completed_at),
+        read: false,
+        actionRoute: '/(tabs)/dashboard',
+      });
+    }
+
+    // Medication refill reminders
+    const meds = (medicationsQuery.data ?? []) as Medication[];
+    meds
+      .filter(m => m.isActive && m.refillDate)
+      .forEach(m => {
+        const refillDate = new Date(m.refillDate!);
+        const daysUntil = Math.ceil((refillDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysUntil <= 7 && daysUntil >= 0) {
+          notifs.push({
+            id: `refill-${m.id}`,
+            category: 'medications',
+            title: 'Refill Reminder',
+            body: `${m.name} ${m.dosage} refill due in ${daysUntil === 0 ? 'today' : `${daysUntil} day${daysUntil !== 1 ? 's' : ''}`}.`,
+            timestamp: new Date(now.getTime() - 1000 * 60 * 30), // 30 min ago
+            read: false,
+            actionRoute: '/refills',
+          });
+        }
+      });
+
+    // Active referral updates
+    const refs = (referralsQuery.data ?? []) as Referral[];
+    refs
+      .filter(r => r.status !== 'COMPLETED' && r.status !== 'DRAFT')
+      .slice(0, 3)
+      .forEach(r => {
+        const statusLabels: Record<string, string> = {
+          SENT: 'Sent', RECEIVED: 'Received', IN_REVIEW: 'In Review',
+          ACCEPTED: 'Accepted', SCHEDULED: 'Scheduled', DECLINED: 'Declined',
+        };
+        notifs.push({
+          id: `referral-${r.id}`,
+          category: 'referrals',
+          title: 'Referral Update',
+          body: `Referral for "${r.reason}" is now ${statusLabels[r.status] ?? r.status}.`,
+          timestamp: new Date(r.updatedAt),
+          read: false,
+          actionRoute: '/(tabs)/referrals',
+        });
+      });
+
+    // New records
+    const recs = (recordsQuery.data ?? []) as Array<{ id: string; title: string; date: string; providerName: string }>;
+    if (recs.length > 0) {
+      const latest = recs[0];
+      notifs.push({
+        id: `record-${latest.id}`,
+        category: 'records',
+        title: 'New Health Record',
+        body: `"${latest.title}" from ${latest.providerName} is now available.`,
+        timestamp: new Date(now.getTime() - 1000 * 60 * 60 * 5), // 5h ago
+        read: false,
+        actionRoute: '/(tabs)/records',
+      });
+    }
+
+    // Insurance nudge when no policy
+    if (insurancePolicies.length === 0) {
+      notifs.push({
+        id: 'insurance-nudge',
+        category: 'insurance',
+        title: 'Add Your Insurance',
+        body: 'Upload your insurance card to instantly verify coverage and financial limits.',
+        timestamp: new Date(now.getTime() - 1000 * 60 * 60 * 24), // 1 day ago
+        read: false,
+        actionRoute: '/upload',
+      });
+    }
+
+    // Apply read/dismissed state
+    return notifs
+      .filter(n => !dismissedIds.has(n.id))
+      .map(n => ({ ...n, read: readIds.has(n.id) }))
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }, [
+    appointmentsQuery.data, gamificationProfileQuery.data, completedChallengesQuery.data,
+    medicationsQuery.data, referralsQuery.data, recordsQuery.data,
+    insurancePolicies, readIds, dismissedIds,
+  ]);
+
+  const unreadCount = useMemo(
+    () => allNotifications.filter(n => !n.read).length,
+    [allNotifications],
+  );
+
+  const markRead = useCallback((id: string) => {
+    setReadIds(prev => {
+      const next = new Set(prev).add(id);
+      persistMeta(next, dismissedIds);
+      return next;
+    });
+  }, [dismissedIds, persistMeta]);
+
+  const markAllRead = useCallback(() => {
+    setReadIds(prev => {
+      const next = new Set([...prev, ...allNotifications.map(n => n.id)]);
+      persistMeta(next, dismissedIds);
+      return next;
+    });
+  }, [allNotifications, dismissedIds, persistMeta]);
+
+  const dismissNotification = useCallback((id: string) => {
+    setDismissedIds(prev => {
+      const next = new Set(prev).add(id);
+      persistMeta(readIds, next);
+      return next;
+    });
+  }, [readIds, persistMeta]);
+
   return useMemo(() => ({
     isSeeded,
     isAuthenticated,
@@ -226,6 +415,11 @@ export const [DataProvider, useData] = createContextHook(() => {
     refetchAll,
     insurancePolicies,
     addInsurancePolicy,
+    notifications: allNotifications,
+    unreadCount,
+    markRead,
+    markAllRead,
+    dismissNotification,
   }), [
     isSeeded, isAuthenticated, isOnboarded, phoneNumber, login, verifyOtp, logout, completeOnboarding,
     appointmentsQuery.data, appointmentsQuery.isLoading, addAppointmentMutation.mutate, updateAppointmentMutation.mutate,
@@ -235,6 +429,7 @@ export const [DataProvider, useData] = createContextHook(() => {
     referralsQuery.data, referralsQuery.isLoading, addReferralMutation.mutate, updateReferralMutation.mutate,
     healthHistoriesQuery.data, healthHistoriesQuery.isLoading, addHealthHistoryMutation.mutate,
     gamificationProfileQuery.data, completedChallengesQuery.data, completeDailyChallengeMutation.mutate,
-    refetchAll, insurancePolicies, addInsurancePolicy
+    refetchAll, insurancePolicies, addInsurancePolicy,
+    allNotifications, unreadCount, markRead, markAllRead, dismissNotification,
   ]);
 });

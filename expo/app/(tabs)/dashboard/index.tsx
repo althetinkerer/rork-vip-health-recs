@@ -15,6 +15,7 @@ import Card from '@/components/Card';
 import { useData } from '@/context/DataContext';
 import GamificationPanel from '@/components/dashboard/GamificationPanel';
 import DentalChartView from '@/components/dashboard/DentalChartView';
+import NotificationsPanel from '@/components/NotificationsPanel';
 import {
   quickActions,
   insuranceData,
@@ -28,6 +29,7 @@ import {
   type InsightCard,
   type DashboardReferral,
 } from '@/mocks/dashboardData';
+
 
 const AVATAR_URL = 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/62ucvr22l2ze5sr60nnf9';
 
@@ -53,13 +55,13 @@ export default function DashboardScreen() {
   const { 
     gamificationProfile, appointments, records, medications, 
     healthHistories, isSeeded, isAuthenticated, getProvider,
-    insurancePolicies
+    insurancePolicies, unreadCount,
   } = useData();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [recordsTab, setRecordsTab] = useState<'medical' | 'dental'>('medical');
   const [referralTab, setReferralTab] = useState<'active' | 'history'>('active');
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifVisible, setNotifVisible] = useState(false);
 
   const firstName = healthHistories?.[0]?.patientInfo?.firstName || 'there';
   const avatarUri = gamificationProfile?.avatar_url || AVATAR_URL;
@@ -90,29 +92,14 @@ export default function DashboardScreen() {
             </Text>
           </View>
           <View style={s.headerRight}>
-            <Pressable
-              style={s.bellBtn}
-              hitSlop={8}
-              onPress={() => setShowNotifications((prev) => !prev)}
-            >
+            <Pressable style={s.bellBtn} hitSlop={8} onPress={() => setNotifVisible(true)}>
               <Bell size={22} color={colors.textPrimary} />
-              <View style={s.bellDot} />
-            </Pressable>
-            {showNotifications && (
-              <View style={s.notificationDropdown}>
-                <View style={s.notificationDropdownBody}>
-                  <View style={s.notificationHeader}>
-                    <Text style={s.notificationTitle}>Notifications</Text>
-                  </View>
-                  <View style={s.notificationEmptyState}>
-                    <View style={s.notificationEmptyIconWrap}>
-                      <Bell size={18} color={colors.textTertiary} />
-                    </View>
-                    <Text style={s.notificationEmptyText}>No notifications found</Text>
-                  </View>
+              {unreadCount > 0 && (
+                <View style={s.bellBadge}>
+                  <Text style={s.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
                 </View>
-              </View>
-            )}
+              )}
+            </Pressable>
             <Pressable onPress={() => router.push('/profile')}>
               <Image source={{ uri: avatarUri }} style={s.headerAvatar} />
             </Pressable>
@@ -120,6 +107,7 @@ export default function DashboardScreen() {
         </View>
       </SafeAreaView>
 
+      <NotificationsPanel visible={notifVisible} onClose={() => setNotifVisible(false)} />
       <ScrollView
         style={s.scroll}
         contentContainerStyle={s.scrollContent}
@@ -539,10 +527,14 @@ const s = StyleSheet.create({
     overflow: 'visible' as const,
   },
   bellBtn: { position: 'relative' as const },
-  bellDot: {
-    position: 'absolute' as const, top: -2, right: -2,
-    width: 8, height: 8, borderRadius: 4,
+  bellBadge: {
+    position: 'absolute' as const, top: -5, right: -6,
+    minWidth: 16, height: 16, borderRadius: 8,
     backgroundColor: colors.error, borderWidth: 1.5, borderColor: colors.surface,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+  },
+  bellBadgeText: {
+    fontSize: 9, fontWeight: '700' as const, color: '#fff', lineHeight: 11,
   },
   notificationDropdown: {
     position: 'absolute' as const,
