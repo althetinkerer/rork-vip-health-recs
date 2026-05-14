@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DataProvider, useData } from "@/context/DataContext";
 import { colors } from "@/constants/theme";
 
-void SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const queryClient = new QueryClient();
 
@@ -19,7 +19,7 @@ function RootLayoutNav() {
     if (isAuthenticated === null) return;
     if (isAuthenticated && (!isSeeded || isOnboarded === null)) return;
 
-    void SplashScreen.hideAsync();
+    SplashScreen.hideAsync().catch(() => {});
 
     const inAuth = segments[0] === "auth";
     const inOnboarding = segments[0] === "onboarding";
